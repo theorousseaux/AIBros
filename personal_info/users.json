@@ -1,0 +1,26 @@
+{
+    "users": [
+        {
+            "first_name": "Thibault",
+            "last_name": "Doux",
+            "nickname": "toubounou",
+            "age": 24,
+            "gender": "M",
+            "height": 180,
+            "weight": 75,
+            "activity_factor": 1.7,
+            "regime": "vegetarian"
+        },
+        {
+            "first_name": "Theo",
+            "last_name": "Rousseaux",
+            "nickname": "dozo",
+            "age": 24,
+            "gender": "M",
+            "height": 175,
+            "weight": 70,
+            "activity_factor": 1.7,
+            "regime": "ketogenic"
+        }
+    ]
+}

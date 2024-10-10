@@ -1,33 +1,41 @@
-from agent import AgentState
-from langgraph.graph import END, StateGraph, START
-from langchain_core.messages import HumanMessage
 from agent import AIBRO
+import json
+from models import State
+
+
+def get_user_information(nickname: str):
+    with open("personal_info/users.json", "r") as f:
+        all_info = json.load(f)
+    for user in all_info["users"]:
+        if user["nickname"].lower() == nickname.lower():
+            return user
+    return {}
+
 
 if __name__ == "__main__":
 
+    user = "dozo"
     aibro = AIBRO()
-    members = ["nutritionist", "bro"]  # , "personal_info_writer"]
-    graph = aibro.create_graph(members=members)
-    state = {"messages": []}
-
-    print("Welcome to AI-Bro! Type 'exit' to end the conversation.")
-
+    wf = aibro.define_graph()
+    history = []
     while True:
         user_input = input("You: ")
-
+        initial_state = State(
+            user_info=get_user_information(user),
+            question=user_input,
+            chat_history=history,
+            diet_plan=None,
+            cookbook=None,
+            response="",
+        )
         if user_input.lower() == "exit":
             print(
                 "AI-Bro: Alright, bro! It was great chatting with you. Stay strong and keep pushing!"
             )
             break
 
-        state["messages"].append(HumanMessage(content=user_input))
+        for output in wf.stream(initial_state, debug=True):
+            if "response" in output:
+                print(output)
 
-        for s in graph.stream(state):
-            # for key in s.keys():
-            #     if key == "bro":
-            #         print(f"AI-Bro: {s[key]['messages'][-1].content} ")
-            state = s
-            print(s)
-
-        state["messages"] = []
+        # history.append(output["response"])

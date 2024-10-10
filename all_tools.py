@@ -1,3 +1,5 @@
+import os
+import json
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
 from typing import Optional, Type
@@ -14,56 +16,110 @@ from typing import Any
 from langchain_community.document_loaders.excel import UnstructuredExcelLoader
 
 
-class ProfileInput(BaseModel):
-    height: int = Field(description="height of the user, in cm")
-    weight: int = Field(description="weight of the user, in kg")
-    gender: str = Field(description="gender of the user, either 'male' or 'female'")
-    age: int = Field(description="Age of the user in years")
-
-
-# class NutritionDatabaseTool(BaseTool):
-#     name: str = "nutrition_database"
-#     description: str = (
-#         "Use this tool to query the nutrition database for information about foods and their nutritional content."
-#     )
-#     agent: Any = Field(
-#         ..., description="The pandas agent used for querying the nutrition database"
-#     )
-
-#     def __init__(self, agent):
-#         super().__init__()
-#         self.agent = agent
-
-#     def _run(self, query: str) -> str:
-#         return self.agent.run(query)
-
-#     async def _arun(self, query: str) -> str:
-#         # For simplicity, we're using the synchronous version
-#         return self._run(query)
-
-
-class BMRCalculatorTool(BaseTool):
-    name: str = "BMRCalculator"
-    description: str = (
-        "Mifflin St Jeor formula for calculating resting energy expenditure (or basal metabolic rate)"
+class PersonalInformation(BaseModel):
+    name: str = Field(
+        description="The name of the user",
+    )  # Mandatory field
+    gender: str = Field(
+        description="The gender of the user, either 'M' or 'F'",
     )
-    args_schema: Type[BaseModel] = ProfileInput
+    age: int = Field(description="The age of the user, in years")
+    weight: float = Field(description="The weight of the user, in kg")
+    height: float = Field(description="The height of the user, in cm")
+    activity_factor: float = Field(
+        description="""
+The activity factor of the user, according to user's information : 
+Bed rest : 1.0-1.1, 
+Sedentary :1.2 , 
+Light exercise (1-3 days per week) : 1.3, 
+Moderate exercise (3-5 days per week) : 1.5,
+Heavy exercise (6-7 days per week) : 1.7,
+Very heavy exercise (twice per day, extra heavy workouts) : 1.9
+""",
+    )
+
+
+class PersonalInformationWriterTool(BaseTool):
+    name: str = "personal_information_writer"
+    description: str = "Writes the personal information of the user in a json file"
+    args_schema: Type[BaseModel] = PersonalInformation
     return_direct: bool = True
 
     def _run(
         self,
-        height: int,
-        weight: int,
-        gender: str,
-        age: int,
+        personal_info: PersonalInformation,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the tool."""
+        print(personal_info)
+        os.makedirs("personal_info", exist_ok=True)
+        existing_users = os.listdir("personal_info")
+        if "name" in personal_info.keys():
+            username = personal_info["name"]
+        else:
+            username = "user"
+        if f"{username}.json" in existing_users:
+            with open(f"personal_info/{username}.json", "r") as f:
+                existing_info = json.load(f)
+        else:
+            existing_info = {}
+        new_info = personal_info.model_dump()
+        user_info = dict(existing_info.items() & new_info.items())
+        with open(f"personal_info/{username}.json", "w") as f:
+            json.dump(user_info, f)
+
+        return user_info
+
+
+class PersonalInformationRetrieverTool(BaseTool):
+    name: str = "personal_information_retriever"
+    description: str = (
+        "Search the personal information of the user in the list of clients"
+    )
+    return_direct: bool = True
+
+    def _run(
+        self,
+        task: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool."""
 
-        if gender == "male":
-            return 10 * weight + 6.25 * height - 5 * age + 5
-        elif gender == "female":
-            return 10 * weight + 6.25 * height - 5 * age - 161
+        with open(f"personal_info/users.json", "r") as f:
+            existing_info = json.load(f)
+
+        return existing_info
+
+
+class CalorieIntakeCalculatorTool(BaseTool):
+    name: str = "kcal_intake_calculator"
+    description: str = (
+        "Calorie intake calculator, based on activity factor and Mifflin St Jeor formula for resting energy expenditure (or basal metabolic rate)"
+    )
+    args_schema: Type[BaseModel] = PersonalInformation
+    return_direct: bool = True
+
+    def _run(
+        self,
+        personal_info: PersonalInformation,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the tool."""
+
+        if personal_info.gender == "male":
+            return (
+                10 * personal_info.weight
+                + 6.25 * personal_info.height
+                - 5 * personal_info.age
+                + 5
+            ) * personal_info.activity_factor
+        elif personal_info.gender == "female":
+            return (
+                10 * personal_info.weight
+                + 6.25 * personal_info.height
+                - 5 * personal_info.age
+                - 161
+            ) * personal_info.activity_factor
 
 
 def nutrition_db_retriever_tool():
