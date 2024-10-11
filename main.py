@@ -1,22 +1,13 @@
 from agent import AIBRO
 import json
 from models import State
-
-
-def get_user_information(nickname: str):
-    with open("personal_info/users.json", "r") as f:
-        all_info = json.load(f)
-    for user in all_info["users"]:
-        if user["nickname"].lower() == nickname.lower():
-            return user
-    return {}
-
+from all_tools import get_user_information
 
 if __name__ == "__main__":
 
     user = "dozo"
     aibro = AIBRO()
-    wf = aibro.define_graph()
+    nut = aibro.nutrition_pipeline()
     history = []
     while True:
         user_input = input("You: ")
@@ -34,7 +25,7 @@ if __name__ == "__main__":
             )
             break
 
-        for output in wf.stream(initial_state, debug=True):
+        for output in nut.stream(initial_state, debug=True):
             if "response" in output:
                 print(output)
 

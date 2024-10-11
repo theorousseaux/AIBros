@@ -94,7 +94,7 @@ class AIBRO:
         response = chain.invoke(state)
         return {"response": response.content}
 
-    def define_graph(self):
+    def nutrition_pipeline(self):
         workflow = StateGraph(State)
 
         workflow.add_node("nutritionist", self.nutritionist)

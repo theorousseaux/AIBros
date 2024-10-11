@@ -16,6 +16,15 @@ from typing import Any
 from langchain_community.document_loaders.excel import UnstructuredExcelLoader
 
 
+def get_user_information(nickname: str):
+    with open("personal_info/users.json", "r") as f:
+        all_info = json.load(f)
+    for user in all_info["users"]:
+        if user["nickname"].lower() == nickname.lower():
+            return user
+    return {}
+
+
 class PersonalInformation(BaseModel):
     name: str = Field(
         description="The name of the user",

@@ -5,20 +5,20 @@ from typing_extensions import TypedDict
 
 
 class MacroNutritiens(BaseModel):
-    proteins: float = Field(description="Quantity of proteins per day, in grams")
-    fat: float = Field(description="Quantity of fat per day, in grams")
-    carbohydrates: float = Field(
-        description="Quantity of carbohydrates per day, in grams"
-    )
+    g_proteins: float = Field(description="Grams of proteins")
+    g_fat: float = Field(description="Grams of fat")
+    g_carbohydrates: float = Field(description="Grams of carbohydrates")
 
 
 class Ingredient(BaseModel):
     name: str = Field(description="Name of the ingredient")
-    quantity: float = Field(description="Quantity of the ingredient, in grams")
+    quantity: str = Field(
+        description="Quantity of the ingredient, with unity of measurement of the quantity (g or mL)"
+    )
 
 
 class Meal(BaseModel):
-    content: str = Field(description="Content of the meal")
+    name: str = Field(description="name of the meal")
     ingredients: List[Ingredient] = Field(description="list of ingredients")
     recipe: str = Field(description="Recipe of the meal")
     kcals: float = Field(description="Total kcals of the meal")
@@ -46,5 +46,5 @@ class State(TypedDict):
     question: str
     chat_history: List[str]
     diet_plan: DietPlanReport
-    cookbook: CookBook
+    cookbook: List[Meal]
     response: str
