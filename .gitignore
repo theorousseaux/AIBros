@@ -1,3 +1,4 @@
 aibro-env/
+*env*
 *pycache*
 .env
