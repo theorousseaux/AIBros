@@ -1,13 +1,13 @@
-from agent import AIBRO
+from src.nutritionist.agent import NutritionPipeline
 import json
-from models import State
-from all_tools import get_user_information
+from src.models import State
+from src.all_tools import get_user_information
 
 if __name__ == "__main__":
 
     user = "dozo"
-    aibro = AIBRO()
-    nut = aibro.nutrition_pipeline()
+    nutri_bro = NutritionPipeline()
+    nutri_pipe = nutri_bro.pipeline()
     history = []
     while True:
         user_input = input("You: ")
@@ -25,7 +25,7 @@ if __name__ == "__main__":
             )
             break
 
-        for output in nut.stream(initial_state, debug=True):
+        for output in nutri_pipe.stream(initial_state, debug=True):
             if "response" in output:
                 print(output)
 

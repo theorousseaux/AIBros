@@ -48,3 +48,21 @@ class State(TypedDict):
     diet_plan: DietPlanReport
     cookbook: List[Meal]
     response: str
+
+
+class Muscle(BaseModel):
+    name: str
+    joints: List[str]
+
+
+class Exercice(BaseModel):
+    name: str
+    muscles: List[Muscle]
+
+
+class Serie(BaseModel):
+    exercice: Exercice
+
+
+class Execution(BaseModel):
+    series: List[Serie]

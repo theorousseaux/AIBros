@@ -15,10 +15,10 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 
 
 from langchain.memory import ConversationBufferMemory
-from models import *
+from ..models import *
 
 
-class AIBRO:
+class NutritionPipeline:
     def __init__(self, llm="gpt-4o-mini"):
         self.llm = ChatOpenAI(model=llm)
         self.chat_history = ConversationBufferMemory()
@@ -94,7 +94,7 @@ class AIBRO:
         response = chain.invoke(state)
         return {"response": response.content}
 
-    def nutrition_pipeline(self):
+    def pipeline(self):
         workflow = StateGraph(State)
 
         workflow.add_node("nutritionist", self.nutritionist)

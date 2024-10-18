@@ -2,8 +2,15 @@ import streamlit as st
 import json
 from typing import List, Dict
 from pydantic import BaseModel, Field
-from agent import AIBRO
-from models import State, DietPlanReport, CookBook, Meal, Ingredient, MacroNutritiens
+from src.nutritionist.agent import NutritionPipeline
+from src.models import (
+    State,
+    DietPlanReport,
+    CookBook,
+    Meal,
+    Ingredient,
+    MacroNutritiens,
+)
 import pandas as pd
 
 st.set_page_config(layout="wide")
@@ -57,8 +64,8 @@ def chat_interface(usernames):
             use_container_width=True,
         )
 
-    aibro = AIBRO()
-    nut = aibro.nutrition_pipeline()
+    nutri_bro = NutritionPipeline()
+    nutri_pipe = nutri_bro.pipeline()
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -81,7 +88,7 @@ def chat_interface(usernames):
             st.markdown(question)
 
         with st.chat_message("assistant"):
-            generate_response(workflow=nut, input=initial_state)
+            generate_response(workflow=nutri_pipe, input=initial_state)
 
             #     # diet_plan = s["nutritionist"]["diet_plan"]
             #     # report_col.warning(diet_plan["goal"])
