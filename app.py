@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 
 
 def get_user_information(nickname: str) -> Dict:
-    with open("personal_info/users.json", "r") as f:
+    with open("data/users.json", "r") as f:
         all_info = json.load(f)
     for user in all_info["users"]:
         if user["nickname"].lower() == nickname.lower():
