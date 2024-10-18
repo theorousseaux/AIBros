@@ -1,3 +1,1 @@
-,Unnamed: 0,workout_date,workout_name,set_id,exercise_name,charge_type,muscles,reps,charge,rest
-0,,2024-10-18 12:38:34.643770,Full Body Workout,1,Bench Press,barbell,"Pectoraux, Triceps, Deltoide antérieur",10,100.0,90.0
-1,,2024-10-18 12:38:34.643770,Full Body Workout,2,Squats,barbell,"Quadriceps, Fessiers, Ischios-jambiers",8,120.0,120.0
+,workout_date,workout_name,set_id,exercise_name,charge_type,muscles,reps,charge,rest

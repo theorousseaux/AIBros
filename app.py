@@ -4,9 +4,11 @@ import os
 import json
 from typing import List, Dict
 from pydantic import BaseModel, Field
-from src.agents_llm.nutritionist import NutritionPipeline
-from src import workout_tracker
-from src.models import (
+from backend.agents_llm.nutritionist import NutritionPipeline
+from backend.agents_llm.workout_parser import WorkoutLogger
+
+from backend import workout_tracker
+from backend.models import (
     State,
     DietPlanReport,
     CookBook,
@@ -144,44 +146,25 @@ def workout_log_interface(username):
 
     if "workout_df" not in st.session_state[username]:
         st.session_state[username]["workout_df"] = df
-    workout = Workout(
-        dt=datetime.now(),
-        name="Full Body Workout",
-        sets=[
-            Set(
-                id=1,
-                exercice=Exercice(
-                    name="Bench Press",
-                    charge_type="barbell",
-                    muscles=["Pectoraux", "Triceps", "Deltoide antérieur"],
-                ),
-                nb_reps=10,
-                charge=100.0,
-                rest=90.0,
-            ),
-            Set(
-                id=2,
-                exercice=Exercice(
-                    name="Squats",
-                    charge_type="barbell",
-                    muscles=["Quadriceps", "Fessiers", "Ischios-jambiers"],
-                ),
-                nb_reps=8,
-                charge=120.0,
-                rest=120.0,
-            ),
-        ],
-    )
-    col1, col2, col3 = st.columns(3)
-    add_workout = col1.button("Add workout", use_container_width=True)
-    save_workout = col2.button("Save", use_container_width=True)
-    if add_workout:
-        st.session_state[username]["workout_df"] = (
-            workout_tracker.add_workout_to_dataframe(
-                workout=workout, df=st.session_state[username]["workout_df"]
-            )
-        )
 
+    uploaded_workout = st.text_area("Notes of the workout")
+    col1, col2, col3 = st.columns(3)
+    add_workout = col1.button("Log workout", use_container_width=True)
+    save_workout = col2.button("Save", use_container_width=True)
+    clear_workout = col3.button("Clear", use_container_width=True)
+    if add_workout:
+        workout_parser = WorkoutLogger()
+        ph_output = st.empty()
+        with st.spinner("BroCoach logging workout..."):
+            workout = workout_parser.chain.invoke({"input": uploaded_workout})
+            ph_output.write_stream(workout)
+            st.session_state[username]["workout_df"] = (
+                workout_tracker.add_workout_to_dataframe(
+                    workout=workout, df=st.session_state[username]["workout_df"]
+                )
+            )
+    if clear_workout:
+        st.session_state[username]["workout_df"] = df
     st.dataframe(st.session_state[username]["workout_df"], use_container_width=True)
 
     if save_workout:
@@ -193,7 +176,7 @@ def main():
     initialize_session_state()
 
     st.sidebar.title("User settings")
-    page = st.sidebar.radio("Mode", ["Nutritionist", "Workout log"])
+    page = st.sidebar.radio("Mode", ["Workout log", "Nutritionist"])
     username = st.sidebar.selectbox("Select user", ["dozo", "toubounou"])
     if page == "Nutritionist":
         chat_interface(username)

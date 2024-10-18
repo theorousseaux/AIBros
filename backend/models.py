@@ -53,9 +53,9 @@ class State(TypedDict):
 
 class Exercice(BaseModel):
     name: str = Field(description="Name of the exercice")
-    charge_type: Literal["bodyweight", "dumbell", "barbell", "cable", "machine"] = (
-        Field(description="Charge type used for mechanical resistance")
-    )
+    charge_type: Literal[
+        "Poids du corps", "Haltère", "Barre", "Poulie", "Machine", "Smith Machine"
+    ] = Field(description="Charge type used for mechanical resistance")
     muscles: List[
         Literal[
             "Biceps",
@@ -76,7 +76,6 @@ class Exercice(BaseModel):
 
 
 class Set(BaseModel):
-    id: int = Field(description="i-th set of the workout for this exercice")
     exercice: Exercice = Field(description="Exercice performed during the set")
     nb_reps: int = Field(description="Number of repetitions done during the set")
     charge: float = Field(description="Added weight used to perform the lift")
@@ -84,6 +83,5 @@ class Set(BaseModel):
 
 
 class Workout(BaseModel):
-    dt: datetime = Field(description="Date of the workout")
     name: str = Field(description="Descriptive title for the workout")
     sets: List[Set] = Field(description="List of sets performed during the workout")
