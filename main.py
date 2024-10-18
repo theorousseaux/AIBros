@@ -1,4 +1,4 @@
-from src.nutritionist.agent import NutritionPipeline
+from AIBros.src.agents_llm.nutritionist import NutritionPipeline
 import json
 from src.models import State
 from src.all_tools import get_user_information

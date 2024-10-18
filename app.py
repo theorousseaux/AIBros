@@ -1,8 +1,11 @@
 import streamlit as st
+from pathlib import Path
+import os
 import json
 from typing import List, Dict
 from pydantic import BaseModel, Field
-from src.nutritionist.agent import NutritionPipeline
+from src.agents_llm.nutritionist import NutritionPipeline
+from src import workout_tracker
 from src.models import (
     State,
     DietPlanReport,
@@ -10,8 +13,12 @@ from src.models import (
     Meal,
     Ingredient,
     MacroNutritiens,
+    Workout,
+    Exercice,
+    Set,
 )
 import pandas as pd
+from datetime import datetime
 
 st.set_page_config(layout="wide")
 
@@ -53,10 +60,8 @@ def display_diet_plan(diet_plan=DietPlanReport):
     st.json(diet_plan["macros"])
 
 
-def chat_interface(usernames):
+def chat_interface(username):
     st.title("AI-Bro (Nutritionist)")
-
-    username = st.sidebar.selectbox("Select user", usernames)
     user = get_user_information(username)
     with st.sidebar.expander("Personal information", expanded=True):
         st.dataframe(
@@ -108,50 +113,92 @@ def chat_interface(usernames):
             #     )
 
 
-def history_interface():
-    st.title("Diet Plan and Cookbook History")
+WORKOUT_LOGS = Path(os.path.join(os.getcwd(), "data", "workout_logs"))
 
-    if st.session_state.diet_plan_history:
-        st.header("Diet Plan History")
-        for i, plan in enumerate(st.session_state.diet_plan_history):
-            with st.expander(f"Diet Plan {i+1}"):
-                st.write(f"Goal: {plan.goal}")
-                st.write(f"Daily Calorie Intake: {plan.kcal_intake} kcal")
-                st.write(f"Method: {plan.method}")
-                st.write("Macronutrients:")
-                st.write(f"- Proteins: {plan.macros.proteins}g")
-                st.write(f"- Fat: {plan.macros.fat}g")
-                st.write(f"- Carbohydrates: {plan.macros.carbohydrates}g")
-                st.write(f"Explanation: {plan.explanation}")
 
-    if st.session_state.cookbook_history:
-        st.header("Cookbook History")
-        for i, cookbook in enumerate(st.session_state.cookbook_history):
-            with st.expander(f"Cookbook {i+1}"):
-                for j, meal in enumerate(cookbook.meals):
-                    st.subheader(f"Meal {j+1}")
-                    st.write(f"Content: {meal.content}")
-                    st.write("Ingredients:")
-                    for ingredient in meal.ingredients:
-                        st.write(f"- {ingredient.name}: {ingredient.quantity}g")
-                    st.write(f"Recipe: {meal.recipe}")
-                    st.write(f"Total Calories: {meal.kcals} kcal")
-                    st.write("Macronutrients:")
-                    st.write(f"- Proteins: {meal.macros.proteins}g")
-                    st.write(f"- Fat: {meal.macros.fat}g")
-                    st.write(f"- Carbohydrates: {meal.macros.carbohydrates}g")
+def workout_log_interface(username):
+    st.title(f"{username} workout log")
+    user_workout_log = os.path.join(WORKOUT_LOGS, f"{username}.csv")
+    if f"{username}.csv" not in os.listdir(WORKOUT_LOGS):
+        st.error(f"No workout logged yet for {username}.")
+        with st.spinner("Creating empty log..."):
+            df = pd.DataFrame(
+                columns=[
+                    "workout_date",
+                    "workout_name",
+                    "set_id",
+                    "exercise_name",
+                    "charge_type",
+                    "muscles",
+                    "reps",
+                    "charge",
+                    "rest",
+                ]
+            )
+            df.to_csv(user_workout_log)
+    else:
+        df = pd.read_csv(user_workout_log)
+
+    if username not in st.session_state:
+        st.session_state[username] = {}
+
+    if "workout_df" not in st.session_state[username]:
+        st.session_state[username]["workout_df"] = df
+    workout = Workout(
+        dt=datetime.now(),
+        name="Full Body Workout",
+        sets=[
+            Set(
+                id=1,
+                exercice=Exercice(
+                    name="Bench Press",
+                    charge_type="barbell",
+                    muscles=["Pectoraux", "Triceps", "Deltoide antérieur"],
+                ),
+                nb_reps=10,
+                charge=100.0,
+                rest=90.0,
+            ),
+            Set(
+                id=2,
+                exercice=Exercice(
+                    name="Squats",
+                    charge_type="barbell",
+                    muscles=["Quadriceps", "Fessiers", "Ischios-jambiers"],
+                ),
+                nb_reps=8,
+                charge=120.0,
+                rest=120.0,
+            ),
+        ],
+    )
+    col1, col2, col3 = st.columns(3)
+    add_workout = col1.button("Add workout", use_container_width=True)
+    save_workout = col2.button("Save", use_container_width=True)
+    if add_workout:
+        st.session_state[username]["workout_df"] = (
+            workout_tracker.add_workout_to_dataframe(
+                workout=workout, df=st.session_state[username]["workout_df"]
+            )
+        )
+
+    st.dataframe(st.session_state[username]["workout_df"], use_container_width=True)
+
+    if save_workout:
+        st.session_state[username]["workout_df"].to_csv(user_workout_log)
+        st.warning("Successfully saved workout")
 
 
 def main():
     initialize_session_state()
 
     st.sidebar.title("User settings")
-    page = st.sidebar.radio("Mode", ["Nutritionist", "History"])
-
+    page = st.sidebar.radio("Mode", ["Nutritionist", "Workout log"])
+    username = st.sidebar.selectbox("Select user", ["dozo", "toubounou"])
     if page == "Nutritionist":
-        chat_interface(usernames=["dozo", "toubounou"])
-    elif page == "History":
-        history_interface()
+        chat_interface(username)
+    elif page == "Workout log":
+        workout_log_interface(username)
 
 
 if __name__ == "__main__":

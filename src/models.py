@@ -2,6 +2,7 @@ from typing import List
 from pydantic import BaseModel, Field
 from typing import Literal
 from typing_extensions import TypedDict
+from datetime import datetime
 
 
 class MacroNutritiens(BaseModel):
@@ -50,19 +51,39 @@ class State(TypedDict):
     response: str
 
 
-class Muscle(BaseModel):
-    name: str
-    joints: List[str]
-
-
 class Exercice(BaseModel):
-    name: str
-    muscles: List[Muscle]
+    name: str = Field(description="Name of the exercice")
+    charge_type: Literal["bodyweight", "dumbell", "barbell", "cable", "machine"] = (
+        Field(description="Charge type used for mechanical resistance")
+    )
+    muscles: List[
+        Literal[
+            "Biceps",
+            "Triceps",
+            "Pectoraux",
+            "Deltoide antérieur",
+            "Deltoide latéral",
+            "Deltoide postérieur",
+            "Abdominaux",
+            "Trapèzes",
+            "Grand dorsal",
+            "Quadriceps",
+            "Ischios-jambiers",
+            "Fessiers",
+            "Mollets",
+        ]
+    ] = Field(description="List of muscles involved in the exercice")
 
 
-class Serie(BaseModel):
-    exercice: Exercice
+class Set(BaseModel):
+    id: int = Field(description="i-th set of the workout for this exercice")
+    exercice: Exercice = Field(description="Exercice performed during the set")
+    nb_reps: int = Field(description="Number of repetitions done during the set")
+    charge: float = Field(description="Added weight used to perform the lift")
+    rest: float = Field(description="Resting duration performed after the set")
 
 
-class Execution(BaseModel):
-    series: List[Serie]
+class Workout(BaseModel):
+    dt: datetime = Field(description="Date of the workout")
+    name: str = Field(description="Descriptive title for the workout")
+    sets: List[Set] = Field(description="List of sets performed during the workout")
