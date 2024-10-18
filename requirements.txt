@@ -4,3 +4,6 @@ langchain_community
 pandas
 openpyxl
 tabulate
+streamlit
+langchain_openai
+langgraph
