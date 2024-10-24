@@ -1,5 +1,9 @@
 aibro-env/
+venv_aibros/
 *env*
 *pycache*
 __pycache__/
 .env
+.gitignore
+*yolo11m-pose.pt
+*yolo11n-pose.pt
