@@ -5,20 +5,8 @@ import json
 from typing import List, Dict
 from pydantic import BaseModel, Field
 from backend.agents_llm.nutritionist import NutritionPipeline
-from backend.agents_llm.workout_parser import WorkoutLogger
-
-from backend import workout_tracker
-from backend.models import (
-    State,
-    DietPlanReport,
-    CookBook,
-    Meal,
-    Ingredient,
-    MacroNutritiens,
-    Workout,
-    Exercice,
-    Set,
-)
+from src.workout_log.workout_parser import *
+from backend.models import *
 import pandas as pd
 from datetime import datetime
 
@@ -119,57 +107,53 @@ WORKOUT_LOGS = Path(os.path.join(os.getcwd(), "data", "workout_logs"))
 
 
 def workout_log_interface(username):
-    st.title(f"{username} workout log")
-    user_workout_log = os.path.join(WORKOUT_LOGS, f"{username}.csv")
-    if f"{username}.csv" not in os.listdir(WORKOUT_LOGS):
-        st.error(f"No workout logged yet for {username}.")
-        with st.spinner("Creating empty log..."):
-            df = pd.DataFrame(
-                columns=[
-                    "workout_date",
-                    "workout_name",
-                    "set_id",
-                    "exercise_name",
-                    "charge_type",
-                    "muscles",
-                    "reps",
-                    "charge",
-                    "rest",
-                ]
+    st.title(f"Logger")
+    upload_workout = st.expander(
+        "Upload an existing workout (text or image)", expanded=True
+    )
+
+    start_workout = st.expander("Start a fresh new workout")
+    with upload_workout:
+        upload_mode = st.radio("Format", ["Photo", "Text"])
+        if upload_mode == "Photo":
+            uploaded_image = st.file_uploader("Photograph of your workout notes")
+        elif upload_mode == "Text":
+            uploaded_text = st.text_area("Notes of your workout")
+            if st.button("Generate"):
+                logger_agent = WorkoutLogger()
+                with st.spinner("BroCoach logging workout..."):
+                    workout = logger_agent.chain.invoke({"input": uploaded_text})
+                    st.session_state["workout_df"] = workout_to_dataframe(
+                        workout=workout
+                    )
+                    st.write(st.session_state["workout_df"])
+            save_workout = st.button(
+                "Save",
+                use_container_width=True,
+                disabled=("workout_df" not in st.session_state),
             )
-            df.to_csv(user_workout_log)
-    else:
-        df = pd.read_csv(user_workout_log)
-
-    if username not in st.session_state:
-        st.session_state[username] = {}
-
-    if "workout_df" not in st.session_state[username]:
-        st.session_state[username]["workout_df"] = df
-
-    uploaded_workout = st.text_area("Notes of the workout")
-    col1, col2, col3 = st.columns(3)
-    add_workout = col1.button("Log workout", use_container_width=True)
-    save_workout = col2.button("Save", use_container_width=True)
-    clear_workout = col3.button("Clear", use_container_width=True)
-    if add_workout:
-        workout_parser = WorkoutLogger()
-        ph_output = st.empty()
-        with st.spinner("BroCoach logging workout..."):
-            workout = workout_parser.chain.invoke({"input": uploaded_workout})
-            ph_output.write_stream(workout)
-            st.session_state[username]["workout_df"] = (
-                workout_tracker.add_workout_to_dataframe(
-                    workout=workout, df=st.session_state[username]["workout_df"]
+            if save_workout:
+                st.session_state["workout_df"].to_csv(
+                    os.path.join(
+                        WORKOUT_LOGS,
+                        username,
+                        f"{st.session_state['workout_df']['Date'].unique()[0]}.csv",
+                    ),
+                    index=False,
                 )
-            )
-    if clear_workout:
-        st.session_state[username]["workout_df"] = df
-    st.dataframe(st.session_state[username]["workout_df"], use_container_width=True)
+                st.warning("Saved")
 
-    if save_workout:
-        st.session_state[username]["workout_df"].to_csv(user_workout_log)
-        st.warning("Successfully saved workout")
+    with start_workout:
+        start = st.button("Start")
+
+    workouts = os.listdir(os.path.join(WORKOUT_LOGS, username))
+    if len(workouts) != 0:
+        selected_workout = st.selectbox("All workouts", workouts)
+        st.dataframe(
+            pd.read_csv(os.path.join(WORKOUT_LOGS, username, selected_workout))
+        )
+    else:
+        st.error(f"No workout logged yet for {username}.")
 
 
 def main():

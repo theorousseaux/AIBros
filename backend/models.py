@@ -51,37 +51,4 @@ class State(TypedDict):
     response: str
 
 
-class Exercice(BaseModel):
-    name: str = Field(description="Name of the exercice")
-    charge_type: Literal[
-        "Poids du corps", "Haltère", "Barre", "Poulie", "Machine", "Smith Machine"
-    ] = Field(description="Charge type used for mechanical resistance")
-    muscles: List[
-        Literal[
-            "Biceps",
-            "Triceps",
-            "Pectoraux",
-            "Deltoide antérieur",
-            "Deltoide latéral",
-            "Deltoide postérieur",
-            "Abdominaux",
-            "Trapèzes",
-            "Grand dorsal",
-            "Quadriceps",
-            "Ischios-jambiers",
-            "Fessiers",
-            "Mollets",
-        ]
-    ] = Field(description="List of muscles involved in the exercice")
 
-
-class Set(BaseModel):
-    exercice: Exercice = Field(description="Exercice performed during the set")
-    nb_reps: int = Field(description="Number of repetitions done during the set")
-    charge: float = Field(description="Added weight used to perform the lift")
-    rest: float = Field(description="Resting duration performed after the set")
-
-
-class Workout(BaseModel):
-    name: str = Field(description="Descriptive title for the workout")
-    sets: List[Set] = Field(description="List of sets performed during the workout")
