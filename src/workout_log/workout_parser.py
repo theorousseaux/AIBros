@@ -8,7 +8,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from typing import List
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 
 class WorkoutLogger:
     def __init__(self, llm="gpt-4o-mini"):
-        self.llm = ChatOpenAI(model=llm)
+        self.llm = ChatOpenAI(model=llm, openai_api_key = openai_api_key)
 
         parser = JsonOutputParser(pydantic_object=Workout)
         system = """
@@ -72,6 +72,7 @@ class Set(BaseModel):
 
 
 class Workout(BaseModel):
+    date: Optional[str] = Field(description="The date of the workout, if mentioned (otherwise : None) ")
     name: str = Field(description="Descriptive title for the workout")
     sets: List[Set] = Field(description="List of sets performed during the workout")
 
@@ -83,9 +84,13 @@ def workout_to_dataframe(workout: dict) -> pd.DataFrame:
     for set_obj in workout["sets"]:
         exercise_name = set_obj["exercice"]["name"]
         exercise_set_counter[exercise_name] += 1
-
+        if 'date' in set_obj.keys():
+            if set_obj['date'] is None or str(set_obj['date']) == 'None':
+                date = set_obj['date']
+        else:
+            date = datetime.now().strftime("%d-%m-%Y %H h")
         row = {
-            "Date": datetime.now().strftime("%d-%m-%Y %H h"),
+            "Date": date,
             "Workout name": workout["name"],
             "Set number ": exercise_set_counter[exercise_name],
             "Exercise name": exercise_name,
