@@ -19,7 +19,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 
 class WorkoutLogger:
     def __init__(self, llm="gpt-4o-mini"):
-        self.llm = ChatOpenAI(model=llm, openai_api_key = openai_api_key)
+        self.llm = ChatOpenAI(model=llm, openai_api_key=openai_api_key)
 
         parser = JsonOutputParser(pydantic_object=Workout)
         system = """
@@ -72,7 +72,9 @@ class Set(BaseModel):
 
 
 class Workout(BaseModel):
-    date: Optional[str] = Field(description="The date of the workout, if mentioned (otherwise : None) ")
+    date: str = Field(
+        description="The date of the workout in format '%d-%m-%Y %H:%M', if mentioned (otherwise : None) "
+    )
     name: str = Field(description="Descriptive title for the workout")
     sets: List[Set] = Field(description="List of sets performed during the workout")
 
@@ -84,9 +86,11 @@ def workout_to_dataframe(workout: dict) -> pd.DataFrame:
     for set_obj in workout["sets"]:
         exercise_name = set_obj["exercice"]["name"]
         exercise_set_counter[exercise_name] += 1
-        if 'date' in set_obj.keys():
-            if set_obj['date'] is None or str(set_obj['date']) == 'None':
-                date = set_obj['date']
+        if "date" in workout.keys():
+            if workout["date"] is None or str(workout["date"]) == "None":
+                date = datetime.now().strftime("%d-%m-%Y %H:%M")
+            else:
+                date = workout["date"]
         else:
             date = datetime.now().strftime("%d-%m-%Y %H h")
         row = {
