@@ -15,14 +15,18 @@ import pandas as pd
 from collections import defaultdict
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
+import base64
+
+import httpx
 
 
 class WorkoutLogger:
-    def __init__(self, llm="gpt-4o-mini"):
-        self.llm = ChatOpenAI(model=llm, openai_api_key=openai_api_key)
+    def __init__(self):
 
-        parser = JsonOutputParser(pydantic_object=Workout)
-        system = """
+        self.llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key)
+        self.mllm = ChatOpenAI(model="gpt-4o", openai_api_key=openai_api_key)
+        self.parser = JsonOutputParser(pydantic_object=Workout)
+        self.system = """
         You are AI-BRO workout logger. 
         Take user's unstructured notes of the workout, and rewrite them in a structured way.
         Take care of counting the sets well. Usually, user will use separators like "-" or "/".
@@ -30,14 +34,47 @@ class WorkoutLogger:
         If an information is not mentioned, fill with None. 
         Follow this structure : {format_instructions}. \n
         """
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", system),
-                ("human", "{input}"),
-            ]
-        ).partial(format_instructions=parser.get_format_instructions())
 
-        self.chain = prompt | self.llm | parser
+    def setup_chain(self, mode):
+        if mode == "mllm":
+            self.prompt = ChatPromptTemplate.from_messages(
+                [
+                    ("system", self.system),
+                    (
+                        "human",
+                        "Extract all the workout informations on the image and rewrite them.",
+                    ),
+                    (
+                        "human",
+                        [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": "data:image/jpeg;base64,{input_img}"
+                                },
+                            }
+                        ],
+                    ),
+                ]
+            ).partial(format_instructions=self.parser.get_format_instructions())
+            return self.prompt | self.mllm | self.parser
+        self.prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", self.system),
+                ("human", "{input_text}"),
+            ]
+        ).partial(format_instructions=self.parser.get_format_instructions())
+        return self.prompt | self.llm | self.parser
+
+    def generate(self, input_text: str | None, input_img=None):
+
+        if input_img is not None:
+            img = base64.b64encode(input_img).decode("utf-8")
+            chain = self.setup_chain(mode="mllm")
+            return chain.invoke({"input_img": img})
+
+        chain = self.setup_chain(mode="llm")
+        return chain.invoke({"input_text": input_text})
 
 
 class Exercice(BaseModel):
