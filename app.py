@@ -9,6 +9,8 @@ from src.workout_log.workout_parser import *
 from backend.models import *
 import pandas as pd
 from datetime import datetime
+from PIL import Image
+from io import BytesIO
 
 st.set_page_config(layout="wide")
 
@@ -19,53 +21,111 @@ def workout_log_interface(username):
         "Upload an existing workout (text or image)", expanded=True
     )
 
-    start_workout = st.expander("Start a fresh new workout")
+    if "logged_workouts" not in st.session_state:
+        st.session_state["logged_workouts"] = pd.DataFrame()
     with upload_workout:
         col1, col2 = st.columns([0.7, 0.3])
-        upload_mode = col1.radio("Format", ["Photo", "Text"])
+        upload_mode = col1.radio(
+            "Format", ["From Image Folder", "Upload Photos", "Text"]
+        )
         notes_img = None
         notes_text = None
-        if upload_mode == "Photo":
-            notes_img = col1.file_uploader("Photograph of your workout notes")
-            col2.image(notes_img, width=500)
+        if upload_mode == "Upload Photos":
+            notes_img_up = col1.file_uploader(
+                "Photograph of your workout notes", accept_multiple_files=True
+            )
+            img_names = [img.name for img in notes_img_up]
+            if notes_img_up is not None and len(img_names) != 0:
+                tabs = col2.tabs(img_names)
+                for i in range(len(notes_img_up)):
+                    tabs[i].image(notes_img_up[i], width=500)
+            notes_img = [note.read() for note in notes_img_up]
         elif upload_mode == "Text":
             notes_text = st.text_area("Notes of your workout")
-        if st.button("Generate"):
+        elif upload_mode == "From Image Folder":
+            img_folder = col1.text_input(
+                "URL of the folder containing the images of workout notes",
+                value=Path(os.path.join(os.getcwd(), "data", "notes_training")),
+            )
+            img_names = os.listdir(img_folder)
+            notes_img_paths = [
+                os.path.join(img_folder, img_name) for img_name in img_names
+            ]
+            if notes_img_paths is not None:
+                tabs = col2.tabs(img_names)
+                for i in range(len(notes_img_paths)):
+                    tabs[i].image(notes_img_paths[i], width=500)
+            notes_img = []
+            for note_img_p in notes_img_paths:
+                with open(note_img_p, "rb") as file:
+                    notes_img.append(file.read())
+        if col1.button("Generate"):
             logger_agent = WorkoutLogger()
+
             with st.spinner("BroCoach logging workout..."):
-                workout = logger_agent.generate(
-                    input_text=notes_text, input_img=notes_img.read()
-                )
-                st.session_state["workout_df"] = workout_to_dataframe(workout=workout)
-                col1.dataframe(
-                    st.session_state["workout_df"],
-                    use_container_width=True,
-                    height=1000,
-                )
+                if notes_img is not None:
+                    df_tabs = col1.tabs(img_names)
+                    for i in range(len(notes_img)):
+                        workout = logger_agent.generate(
+                            input_text=notes_text, input_img=notes_img[i]
+                        )
+                        st.write(
+                            f"Nb de tokens input : {len(str(logger_agent.prompt))/4}"
+                        )
+                        st.write(f"Nb de tokens output : {len(str(workout))/4}")
+                        st.session_state[img_names[i]] = workout_to_dataframe(
+                            workout=workout
+                        )
+                        df_tabs[i].dataframe(
+                            st.session_state[img_names[i]], use_container_width=True
+                        )
+                        st.session_state["logged_workouts"] = add_workout_to_dataframe(
+                            workout=workout,
+                            df=st.session_state["logged_workouts"],
+                        )
+                else:
+                    workout = logger_agent.generate(input_text=notes_text)
+                    workout_df = workout_to_dataframe(workout=workout)
+                    st.session_state["logged_workouts"] = add_workout_to_dataframe(
+                        workout=workout,
+                        df=st.session_state["logged_workouts"],
+                    )
+
+        st.markdown("## Full log preview")
+        st.dataframe(
+            st.session_state["logged_workouts"],
+            use_container_width=True,
+            height=800,
+        )
         save_workout = st.button(
             "Save",
             use_container_width=True,
-            disabled=("workout_df" not in st.session_state),
+            # disabled=("workout_df" not in st.session_state),
         )
         if save_workout:
-            st.session_state["workout_df"].to_csv(
-                os.path.join(
-                    WORKOUT_LOGS,
-                    username,
-                    f"{st.session_state['workout_df']['Date'].unique()[0]}.csv",
-                ),
+            csv_path = os.path.join(
+                WORKOUT_LOGS,
+                f"{username}.csv",
+            )
+            file_exists = os.path.isfile(csv_path)
+            st.session_state["logged_workouts"].to_csv(
+                csv_path,
+                mode="a",
                 index=False,
+                header=not file_exists,
             )
             st.warning("Saved")
 
-    with start_workout:
-        start = st.button("Start")
-
-    workouts = os.listdir(os.path.join(WORKOUT_LOGS, username))
-    if len(workouts) != 0:
-        selected_workout = st.selectbox("All workouts", workouts)
+    # start_workout = st.expander("Start a fresh new workout")
+    # with start_workout:
+    #     start = st.button("Start")
+    # os.makedirs(os.path.join(WORKOUT_LOGS, username), exist_ok=True)
+    # workouts = os.listdir(os.path.join(WORKOUT_LOGS, username))
+    workout_log_path = os.path.join(WORKOUT_LOGS, f"{username}.csv")
+    if os.path.isfile(workout_log_path):
+        workout_log = pd.read_csv(workout_log_path)
         st.dataframe(
-            pd.read_csv(os.path.join(WORKOUT_LOGS, username, selected_workout)),
+            workout_log,
             use_container_width=True,
         )
     else:

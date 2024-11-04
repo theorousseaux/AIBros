@@ -71,34 +71,72 @@ class WorkoutLogger:
         if input_img is not None:
             img = base64.b64encode(input_img).decode("utf-8")
             chain = self.setup_chain(mode="mllm")
-            return chain.invoke({"input_img": img})
+            res = chain.invoke({"input_img": img})
+            return res
 
         chain = self.setup_chain(mode="llm")
         return chain.invoke({"input_text": input_text})
 
 
 class Exercice(BaseModel):
-    name: str = Field(description="Name of the exercice")
+    name: Literal[
+        "Squat",
+        "Front Squat",
+        "Bench Press",
+        "Incline Bench Press",
+        "Decline Bench Press",
+        "Deadlift",
+        "Romanian Deadlift",
+        "Overhead Press",
+        "Barbell Row",
+        "Pull-Up",
+        "Push-Up",
+        "Dumbbell Curl",
+        "Tricep Extension",
+        "Leg Press",
+        "Sitted Leg Curl",
+        "Standing Leg Curl",
+        "Leg Curl",
+        "Leg Extension",
+        "Lateral Raise",
+        "Upright Row",
+        "Chest Fly",
+        "Lat Pulldown",
+        "Cable Row",
+        "Dips",
+        "Shoulder Press",
+        "Calf Raise",
+        "Hip Thrust",
+        "Hammer Curl",
+        "Bulgarian Split Squat",
+        "Lunges",
+        "Face Pull",
+        "Pec Deck",
+        "Seated Cable Row",
+        "Bent-Over Lateral Raise",
+        "Good Morning",
+        "Glute Bridge",
+        "Skull Crusher",
+        "Preacher Curl",
+        "Concentration Curl",
+        "Side Plank",
+        "Russian Twist",
+        "Leg Raise",
+        "Hanging Knee Raise",
+    ] = Field(description="Name of the exercice")
     charge_type: Literal[
-        "Poids du corps", "Haltère", "Barre", "Poulie", "Machine", "Smith Machine"
+        "Bodyweight",
+        "Elastic band",
+        "Dumbell",
+        "Barbell",
+        "Kettlebell",
+        "Cable",
+        "Machine",
+        "Smith Machine",
     ] = Field(description="Charge type used for mechanical resistance")
-    # muscles: List[
-    #     Literal[
-    #         "Biceps",
-    #         "Triceps",
-    #         "Pectoraux",
-    #         "Deltoide antérieur",
-    #         "Deltoide latéral",
-    #         "Deltoide postérieur",
-    #         "Abdominaux",
-    #         "Trapèzes",
-    #         "Grand dorsal",
-    #         "Quadriceps",
-    #         "Ischios-jambiers",
-    #         "Fessiers",
-    #         "Mollets",
-    #     ]
-    # ] = Field(description="List of muscles involved in the exercice")
+    execution_mode: Literal["bilateral", "unilateral"] = Field(
+        description="the execution mode. If reps are performed silmutaneously, mode is bilateral, if it is alternated or one arm at a time, this is unilateral. "
+    )
 
 
 class Set(BaseModel):
@@ -106,13 +144,41 @@ class Set(BaseModel):
     nb_reps: int = Field(description="Number of repetitions done during the set")
     charge: float = Field(description="Added weight used to perform the lift")
     rest: float = Field(description="Resting duration performed after the set")
+    muscles: List[
+        Literal[
+            "Biceps",
+            "Triceps",
+            "Chest",
+            "Front Deltoid",
+            "Lateral Deltoid",
+            "Rear Deltoid",
+            "Core",
+            "Trapezius",
+            "Latissimus Dorsi",
+            "Quadriceps",
+            "Hamstrings",
+            "Glutes",
+            "Calves",
+        ]
+    ] = Field(description="List of muscles involved in the exercice")
 
 
 class Workout(BaseModel):
     date: str = Field(
         description="The date of the workout in format '%d-%m-%Y %H:%M', if mentioned (otherwise : None) "
     )
-    name: str = Field(description="Descriptive title for the workout")
+    name: str = Field(description="Custom name of the workout")
+    type: Literal[
+        "UPPER BODY",
+        "LOWER BODY",
+        "PUSH",
+        "PULL",
+        "FULL BODY",
+        "SPLIT",
+        "OTHER",
+    ] = Field(
+        description="type of workout performed. 'SPLIT' is when only one or a minority of muscles are targeted."
+    )
     sets: List[Set] = Field(description="List of sets performed during the workout")
 
 
@@ -129,22 +195,25 @@ def workout_to_dataframe(workout: dict) -> pd.DataFrame:
             else:
                 date = workout["date"]
         else:
-            date = datetime.now().strftime("%d-%m-%Y %H h")
+            date = datetime.now().strftime("%d-%m-%Y %H:%M")
         row = {
             "Date": date,
             "Workout name": workout["name"],
+            "Workout type": workout["type"],
             "Set number ": exercise_set_counter[exercise_name],
             "Exercise name": exercise_name,
             "Equipment": set_obj["exercice"]["charge_type"],
+            "Execution mode": set_obj["exercice"]["execution_mode"],
             "Number of repetitions": set_obj["nb_reps"],
             "Charge (kg)": set_obj["charge"],
             "Rest time (sec)": set_obj["rest"],
+            "Involved muscles": set_obj["muscles"],
         }
         rows.append(row)
 
     return pd.DataFrame(rows)
 
 
-def add_workout_to_dataframe(workout: Workout, df: pd.DataFrame) -> pd.DataFrame:
+def add_workout_to_dataframe(workout: dict, df: pd.DataFrame) -> pd.DataFrame:
     new_data = workout_to_dataframe(workout)
     return pd.concat([df, new_data], ignore_index=True)
