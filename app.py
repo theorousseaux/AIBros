@@ -54,7 +54,7 @@ def workout_log_interface(username):
             if notes_img_paths is not None:
                 tabs = col2.tabs(img_names)
                 for i in range(len(notes_img_paths)):
-                    tabs[i].image(notes_img_paths[i], width=500)
+                    tabs[i].image(notes_img_paths[i], use_column_width=True)
             notes_img = []
             for note_img_p in notes_img_paths:
                 with open(note_img_p, "rb") as file:
@@ -67,12 +67,11 @@ def workout_log_interface(username):
                     df_tabs = col1.tabs(img_names)
                     for i in range(len(notes_img)):
                         workout = logger_agent.generate(
-                            input_text=notes_text, input_img=notes_img[i]
+                            input_text=notes_text, 
+                            input_img=notes_img[i],
+                            img_scale_factor=0.2,
+                            img_quality=75
                         )
-                        st.write(
-                            f"Nb de tokens input : {len(str(logger_agent.prompt))/4}"
-                        )
-                        st.write(f"Nb de tokens output : {len(str(workout))/4}")
                         st.session_state[img_names[i]] = workout_to_dataframe(
                             workout=workout
                         )
@@ -86,6 +85,7 @@ def workout_log_interface(username):
                 else:
                     workout = logger_agent.generate(input_text=notes_text)
                     workout_df = workout_to_dataframe(workout=workout)
+                    col1.dataframe(workout_df)
                     st.session_state["logged_workouts"] = add_workout_to_dataframe(
                         workout=workout,
                         df=st.session_state["logged_workouts"],
@@ -95,7 +95,7 @@ def workout_log_interface(username):
         st.dataframe(
             st.session_state["logged_workouts"],
             use_container_width=True,
-            height=800,
+            height=500,
         )
         save_workout = st.button(
             "Save",
@@ -123,7 +123,7 @@ def workout_log_interface(username):
     # workouts = os.listdir(os.path.join(WORKOUT_LOGS, username))
     workout_log_path = os.path.join(WORKOUT_LOGS, f"{username}.csv")
     if os.path.isfile(workout_log_path):
-        workout_log = pd.read_csv(workout_log_path)
+        workout_log = pd.read_csv(workout_log_path, delimiter=',')
         st.dataframe(
             workout_log,
             use_container_width=True,

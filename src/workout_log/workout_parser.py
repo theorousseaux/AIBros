@@ -17,9 +17,35 @@ from collections import defaultdict
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 import base64
+from PIL import Image
+import io
 
-import httpx
+def preprocess_image(input_img, scale_factor=0.5, quality=75):
+    """
+    Preprocess the image by scaling it down by a given factor and adjusting the quality.
 
+    Parameters:
+    - input_img: The input image in bytes.
+    - scale_factor: The factor by which to scale the image (e.g., 0.5 for 50% size).
+    - quality: The quality of the output image (1-100, with lower being more compressed).
+    """
+    # Open the image from a byte array
+    img = Image.open(io.BytesIO(input_img))
+    
+    # Calculate the new size based on the scale factor
+    new_width = int(img.width * scale_factor)
+    new_height = int(img.height * scale_factor)
+    
+    # Resize the image with the new dimensions
+    img = img.resize((new_width, new_height), Image.LANCZOS)
+    
+    # Save the image to a BytesIO object with the specified quality
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=quality)
+    buffer.seek(0)
+    
+    # Return the base64-encoded string of the image
+    return base64.b64encode(buffer.read()).decode("utf-8")
 
 class WorkoutLogger:
     def __init__(self):
@@ -32,6 +58,17 @@ class WorkoutLogger:
         Take user's unstructured notes of the workout, and rewrite them in a structured way.
         Take care of counting the sets well. Usually, user will use separators like "-" or "/".
         If format is "12/12/12/12" or "4*12", it means 4 sets of 12 reps, so 4 new "Set" objects in the output.
+        Take care of acronyms and translations : 
+        - 'OVHP' (overhead press)
+        - 'SDT' (soulevé de terre / deadlift)
+        - 'RDL' (romanian deadlift)
+        - 'DC' (développé couché / bench press)
+        - 'DI' (developpé incliné / inclined bench press)
+        - barre au front : skull crusher
+        - 'uni' : unilateral
+        - 'pdc' : poids du corps / bodyweight
+        - 'halt.' : haltères / dumbell
+
         If an information is not mentioned, fill with None. 
         Follow this structure : {format_instructions}. \n
         """
@@ -67,10 +104,11 @@ class WorkoutLogger:
         ).partial(format_instructions=self.parser.get_format_instructions())
         return self.prompt | self.llm | self.parser
 
-    def generate(self, input_text: str | None, input_img=None):
+    def generate(self, input_text: str | None, input_img=None, img_scale_factor = 0.5, img_quality=100):
 
         if input_img is not None:
-            img = base64.b64encode(input_img).decode("utf-8")
+            img = preprocess_image(input_img, scale_factor=img_scale_factor, quality=img_quality)
+            # img = base64.b64encode(input_img).decode("utf-8")
             chain = self.setup_chain(mode="mllm")
             res = chain.invoke({"input_img": img})
             return res
@@ -113,6 +151,9 @@ class Exercice(BaseModel):
         "Lunges",
         "Face Pull",
         "Pec Deck",
+        "Sissy Squat",
+        "Pistol Squat",
+        "Muscle-up",
         "Seated Cable Row",
         "Bent-Over Lateral Raise",
         "Good Morning",
@@ -128,6 +169,7 @@ class Exercice(BaseModel):
     charge_type: Literal[
         "Bodyweight",
         "Elastic band",
+        "Rings",
         "Dumbell",
         "Barbell",
         "Kettlebell",
@@ -168,7 +210,7 @@ class Workout(BaseModel):
     date: str = Field(
         description="The date of the workout in format '%d-%m-%Y %H:%M', if mentioned (otherwise : None) "
     )
-    name: str = Field(description="Custom name of the workout")
+    name: str = Field(description="Custom name of the workout by the user")
     type: Literal[
         "UPPER BODY",
         "LOWER BODY",
@@ -181,6 +223,7 @@ class Workout(BaseModel):
         description="type of workout performed. 'SPLIT' is when only one or a minority of muscles are targeted."
     )
     sets: List[Set] = Field(description="List of sets performed during the workout")
+    remarks : str = Field(description="Any comments or remarks stated by the user")
 
 
 def workout_to_dataframe(workout: dict) -> pd.DataFrame:
@@ -209,6 +252,7 @@ def workout_to_dataframe(workout: dict) -> pd.DataFrame:
             "Charge (kg)": set_obj["charge"],
             "Rest time (sec)": set_obj["rest"],
             "Involved muscles": set_obj["muscles"],
+            "Remarks" : workout["remarks"],
         }
         rows.append(row)
 
