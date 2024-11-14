@@ -14,6 +14,9 @@ from io import BytesIO
 
 st.set_page_config(layout="wide")
 
+WORKOUT_LOGS = Path(os.path.join(os.getcwd(), "data", "workout_logs"))
+os.makedirs(WORKOUT_LOGS, exist_ok=True)
+
 
 def workout_log_interface(username):
     st.title(f"Logger")
@@ -67,10 +70,10 @@ def workout_log_interface(username):
                     df_tabs = col1.tabs(img_names)
                     for i in range(len(notes_img)):
                         workout = logger_agent.generate(
-                            input_text=notes_text, 
+                            input_text=notes_text,
                             input_img=notes_img[i],
-                            img_scale_factor=0.2,
-                            img_quality=75
+                            img_scale_factor=0.1,
+                            img_quality=75,
                         )
                         st.session_state[img_names[i]] = workout_to_dataframe(
                             workout=workout
@@ -108,11 +111,17 @@ def workout_log_interface(username):
                 f"{username}.csv",
             )
             file_exists = os.path.isfile(csv_path)
-            st.session_state["logged_workouts"].to_csv(
+            if file_exists:
+                existing_log = pd.read_csv(csv_path, delimiter=",")
+                combined_log = pd.concat(
+                    [existing_log, st.session_state["logged_workouts"]]
+                )
+                combined_log = combined_log.drop_duplicates()
+            else:
+                combined_log = st.session_state["logged_workouts"].drop_duplicates()
+            combined_log.to_csv(
                 csv_path,
-                mode="a",
                 index=False,
-                header=not file_exists,
             )
             st.warning("Saved")
 
@@ -123,7 +132,7 @@ def workout_log_interface(username):
     # workouts = os.listdir(os.path.join(WORKOUT_LOGS, username))
     workout_log_path = os.path.join(WORKOUT_LOGS, f"{username}.csv")
     if os.path.isfile(workout_log_path):
-        workout_log = pd.read_csv(workout_log_path, delimiter=',')
+        workout_log = pd.read_csv(workout_log_path, delimiter=",")
         st.dataframe(
             workout_log,
             use_container_width=True,
@@ -137,7 +146,7 @@ def main():
 
     st.sidebar.title("User settings")
     page = st.sidebar.radio("Mode", ["Workout log", "Nutritionist"])
-    username = st.sidebar.selectbox("Select user", ["dozo", "toubounou"])
+    username = st.sidebar.selectbox("Select user", ["toubounou"])
     if page == "Nutritionist":
         chat_interface(username)
     elif page == "Workout log":
@@ -232,9 +241,6 @@ def chat_interface(username):
             #             "content": s["final_response"]["response"],
             #         }
             #     )
-
-
-WORKOUT_LOGS = Path(os.path.join(os.getcwd(), "data", "workout_logs"))
 
 
 if __name__ == "__main__":

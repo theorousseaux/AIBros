@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
 import pandas as pd
+import ast
 
 from collections import defaultdict
 
@@ -19,6 +20,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 import base64
 from PIL import Image
 import io
+
 
 def preprocess_image(input_img, scale_factor=0.5, quality=75):
     """
@@ -31,21 +33,22 @@ def preprocess_image(input_img, scale_factor=0.5, quality=75):
     """
     # Open the image from a byte array
     img = Image.open(io.BytesIO(input_img))
-    
+
     # Calculate the new size based on the scale factor
     new_width = int(img.width * scale_factor)
     new_height = int(img.height * scale_factor)
-    
+
     # Resize the image with the new dimensions
     img = img.resize((new_width, new_height), Image.LANCZOS)
-    
+
     # Save the image to a BytesIO object with the specified quality
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG", quality=quality)
     buffer.seek(0)
-    
+
     # Return the base64-encoded string of the image
     return base64.b64encode(buffer.read()).decode("utf-8")
+
 
 class WorkoutLogger:
     def __init__(self):
@@ -104,10 +107,18 @@ class WorkoutLogger:
         ).partial(format_instructions=self.parser.get_format_instructions())
         return self.prompt | self.llm | self.parser
 
-    def generate(self, input_text: str | None, input_img=None, img_scale_factor = 0.5, img_quality=100):
+    def generate(
+        self,
+        input_text: str | None,
+        input_img=None,
+        img_scale_factor=0.5,
+        img_quality=100,
+    ):
 
         if input_img is not None:
-            img = preprocess_image(input_img, scale_factor=img_scale_factor, quality=img_quality)
+            img = preprocess_image(
+                input_img, scale_factor=img_scale_factor, quality=img_quality
+            )
             # img = base64.b64encode(input_img).decode("utf-8")
             chain = self.setup_chain(mode="mllm")
             res = chain.invoke({"input_img": img})
@@ -121,6 +132,7 @@ class Exercice(BaseModel):
     name: Literal[
         "Squat",
         "Front Squat",
+        "Hack Squat",
         "Bench Press",
         "Incline Bench Press",
         "Decline Bench Press",
@@ -165,6 +177,8 @@ class Exercice(BaseModel):
         "Russian Twist",
         "Leg Raise",
         "Hanging Knee Raise",
+        "Abductors Machine",
+        "Adductors Machine",
     ] = Field(description="Name of the exercice")
     charge_type: Literal[
         "Bodyweight",
@@ -187,23 +201,25 @@ class Set(BaseModel):
     nb_reps: int = Field(description="Number of repetitions done during the set")
     charge: float = Field(description="Added weight used to perform the lift")
     rest: float = Field(description="Resting duration performed after the set")
-    muscles: List[
-        Literal[
-            "Biceps",
-            "Triceps",
-            "Chest",
-            "Front Deltoid",
-            "Lateral Deltoid",
-            "Rear Deltoid",
-            "Core",
-            "Trapezius",
-            "Latissimus Dorsi",
-            "Quadriceps",
-            "Hamstrings",
-            "Glutes",
-            "Calves",
-        ]
-    ] = Field(description="List of muscles involved in the exercice")
+    # muscles: List[
+    #     Literal[
+    #         "Biceps",
+    #         "Triceps",
+    #         "Chest",
+    #         "Front Deltoid",
+    #         "Lateral Deltoid",
+    #         "Rear Deltoid",
+    #         "Core",
+    #         "Trapezius",
+    #         "Latissimus Dorsi",
+    #         "Quadriceps",
+    #         "Hamstrings",
+    #         "Glutes",
+    #         "Calves",
+    #         "Adductors",
+    #         "Abductors",
+    #     ]
+    # ] = Field(description="List of muscles involved in the exercice")
 
 
 class Workout(BaseModel):
@@ -223,7 +239,9 @@ class Workout(BaseModel):
         description="type of workout performed. 'SPLIT' is when only one or a minority of muscles are targeted."
     )
     sets: List[Set] = Field(description="List of sets performed during the workout")
-    remarks : str = Field(description="Any comments or remarks stated by the user")
+    remarks: str = Field(
+        description="Any comments or remarks stated by the user. Keep it short."
+    )
 
 
 def workout_to_dataframe(workout: dict) -> pd.DataFrame:
@@ -251,8 +269,8 @@ def workout_to_dataframe(workout: dict) -> pd.DataFrame:
             "Number of repetitions": set_obj["nb_reps"],
             "Charge (kg)": set_obj["charge"],
             "Rest time (sec)": set_obj["rest"],
-            "Involved muscles": set_obj["muscles"],
-            "Remarks" : workout["remarks"],
+            # "Involved muscles": to_list_of_str(set_obj["muscles"]),
+            "Remarks": str(workout["remarks"]),
         }
         rows.append(row)
 
@@ -262,3 +280,18 @@ def workout_to_dataframe(workout: dict) -> pd.DataFrame:
 def add_workout_to_dataframe(workout: dict, df: pd.DataFrame) -> pd.DataFrame:
     new_data = workout_to_dataframe(workout)
     return pd.concat([df, new_data], ignore_index=True)
+
+
+def to_list_of_str(entry):
+    if isinstance(entry, str):
+        try:
+            # Safely evaluate the string as a Python literal (like a list)
+            return ast.literal_eval(entry)
+        except (ValueError, SyntaxError):
+            # If it fails, handle as needed (e.g., return an empty list)
+            return []
+    elif isinstance(entry, list):
+        return entry
+    else:
+        # If it's neither, return an empty list or handle as needed
+        return []
