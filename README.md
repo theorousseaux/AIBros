@@ -41,7 +41,7 @@ Fork it, clone it, PR it. Hit us with issues. We love building with the fam.
 
 ## Contact
 
-Got ideas or wanna collab? Hit us up at [email@example.com](mailto:email@example.com).
+Got ideas or wanna collab? Hit us up at [douxthibault.pro@gmail.com](mailto:douxthibault.pro@gmail.com).
 
 ---
 
